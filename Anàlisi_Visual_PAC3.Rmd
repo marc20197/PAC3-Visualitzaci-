@@ -1,0 +1,98 @@
+---
+title: "ANÀLISI_VISUAL_PAC3"
+output: html_document
+date: "2024-11-30"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Afegiré les llibreries que faré servir per a l'anàlisi.
+
+```{r}
+library(tidyr)
+library(dplyr)
+```
+
+Primer de tot, llegirem el fitxer hotel_bookings.csv i en farem un dataframe
+
+```{r}
+data=read.csv("hotel_bookings.csv", stringsAsFactors = T)
+dim(data)
+```
+
+Netejaré el dataframe de manera que només se'm mostrin aquelles files amb despesa inferior a 1000 i no negativa.
+
+També eliminaré les files amb country = Portugal, ja que voldré fixar-me només amb els turistes de fora.
+
+```{r}
+data_netejat=data[data$adr>=0 & data$adr<1000,]
+data_extrangers=data_netejat[data_netejat$country!='PRT',]
+```
+
+Miraré només els 20 països estrangers que més reserves van fer en hotels de Portugal. Els filtraré.
+
+```{r}
+top_countries <- data_extrangers %>% 
+  count(country, sort = TRUE) %>% 
+  top_n(20, n)
+
+data_20 <- data_extrangers %>% filter(country %in% top_countries$country)
+```
+
+Farem el csv pel treemap
+
+```{r}
+#Crearé un dataframe per fer-ne un treemap
+data_treemap <- data_20 %>%
+  group_by(arrival_date_year, country, hotel) %>%
+  summarise(total_adr = sum(adr, na.rm = TRUE)) %>%
+  ungroup()
+
+# Canviaré els noms de les columnes
+colnames(data_treemap) <- c("Year", "Country", "Hotel", "Total_ADR")
+
+print(data_treemap)
+
+# Escric el dataframe en un csv, estarà amb l'estructura tal com el vol Florish
+write.csv(data_treemap, "grafic_treemap.csv", row.names = FALSE)
+```
+
+Farem el csv pel gràfic de línies
+
+```{r}
+#Crearé un dataframe per fer el gràfic de línies
+df_total_anys <- data_20 %>%
+  group_by(arrival_date_year, country) %>%
+  summarise(total_adr = sum(adr, na.rm = TRUE)) %>%
+  ungroup()
+
+#Reestructuraré el dataframe per a que tingui l'estructura que demana Flourish
+data_linies <- df_total_anys %>%
+  pivot_wider(names_from = country, values_from = total_adr, values_fill = list(total_adr = 0))
+
+print(data_linies)
+
+# Escric el dataframe en un csv, estarà amb l'estructura tal com el vol Florish
+write.csv(data_linies, "grafic_linies.csv", row.names = FALSE)
+```
+
+Farem el csv pel gràfic de barres
+
+```{r}
+#Crearé un dataframe per fer el gràfic de barres
+df_freq <- data_20 %>%
+  group_by(arrival_date_year, hotel) %>%
+  summarise(frequencia = n()) %>%
+  ungroup()
+
+#Reestructuraré el dataframe per a que tingui l'estructura que demana Flourish
+data_barres <- df_freq %>%
+  pivot_wider(names_from = hotel, values_from = frequencia, values_fill = list(frequencia = 0))
+
+print(data_barres)
+
+# Escric el dataframe en un csv, estarà amb l'estructura tal com el vol Florish
+write.csv(data_barres, "grafic_barres.csv", row.names = FALSE)
+```
